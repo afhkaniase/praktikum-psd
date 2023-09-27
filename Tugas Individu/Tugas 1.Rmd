@@ -1,1 +1,115 @@
-ppp
+---
+title: "Tugas Mandiri PSD"
+author: "Arfiah Kania Sektiaruni"
+date: "2023-09-26"
+output: html_document
+---
+
+## Packages
+
+```{r}
+lapply(c("tidyverse","rvest","kableExtra"),library,character.only=T)[[1]]
+library(glmnet)
+```
+
+## Input Data
+
+```{r}
+datapsdind <- rio::import("https://raw.githubusercontent.com/afhkaniase/praktikum-psd/main/Tugas%20Individu/Data%20World%20Happiness%20Report%202023.csv")
+str(datapsdind)
+datapsdind
+```
+
+## Ridge Regression
+
+### Data Peubah
+
+```{r}
+y <- datapsdind$Y
+x <- data.matrix(datapsdind[, c('X1', 'X2', 'X3', 'X4', 'X5', 'X6')])
+```
+
+### CV
+
+```{r}
+cv.r<-cv.glmnet(x,y,alpha=0)
+plot(cv.r)
+```
+
+### Best Model
+
+```{r}
+best.lr<-cv.r$lambda.min
+bestridge<-glmnet(x,y,alpha=0,lambda=best.lr)
+coef(bestridge)
+```
+
+### Fungsi R-Square
+
+```{r}
+rsq<-function(bestmodel,bestlambda,x,y){
+ #y duga
+ y.duga <- predict(bestmodel, s = bestlambda, newx = x)
+
+ #JKG dan JKT
+ jkt <- sum((y - mean(y))^2)
+ jkg <- sum((y.duga- y)^2)
+
+#find R-Squared
+rsq <- 1 - jkg/jkt
+return(rsq) 
+}
+```
+
+### R-Square Ridge
+
+```{r}
+rsq(bestridge,best.lr,x,y)
+```
+
+## LASSO Regression
+
+### Data Peubah
+
+```{r}
+y <- datapsdind$Y
+x <- data.matrix(datapsdind[, c('X1', 'X2', 'X3', 'X4', 'X5', 'X6')])
+```
+
+### CV
+
+```{r}
+cv.r<-cv.glmnet(x,y,alpha=1)
+plot(cv.r)
+```
+
+### Best Model
+
+```{r}
+best.lr<-cv.r$lambda.min
+bestridge<-glmnet(x,y,alpha=1,lambda=best.lr)
+coef(bestridge)
+```
+
+### Fungsi R-Square
+
+```{r}
+rsq<-function(bestmodel,bestlambda,x,y){
+ #y duga
+ y.duga <- predict(bestmodel, s = bestlambda, newx = x)
+
+ #JKG dan JKT
+ jkt <- sum((y - mean(y))^2)
+ jkg <- sum((y.duga- y)^2)
+
+#find R-Squared
+rsq <- 1 - jkg/jkt
+return(rsq) 
+}
+```
+
+### R-Square Ridge
+
+```{r}
+rsq(bestridge,best.lr,x,y)
+```
