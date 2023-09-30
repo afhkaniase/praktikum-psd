@@ -10,6 +10,14 @@ output: html_document
 ```{r}
 lapply(c("tidyverse","rvest","kableExtra"),library,character.only=T)[[1]]
 library(glmnet)
+library(imputeTS)
+library(corrplot)
+library(randtests)
+library(lmridge)
+library(lares)
+library(MASS)
+library(elasticnet)
+library(caret)
 ```
 
 ## Input Data
@@ -17,99 +25,275 @@ library(glmnet)
 ```{r}
 datapsdind <- rio::import("https://raw.githubusercontent.com/afhkaniase/praktikum-psd/main/Tugas%20Individu/Data%20World%20Happiness%20Report%202023.csv")
 str(datapsdind)
-datapsdind
+head(datapsdind)
+```
+
+## Data Peubah
+
+Analisis ini menggunakan data sekunder yang berasal dari situs kaggle.com yang mengacu pada World Happiness Report 2023. Laporan tersebut berisi data tahunan tentang skor kebahagiaan berbagai negara yang diterbitkan oleh Perserikatan Bangsa-Bangsa (PBB). Penelitian dilakukan untuk mengetahui hubungan dari beberapa peubah, yaitu PDB per kapita, harapan hidup sehat, dukungan sosial, kebebasan dalam menentukan pilihan hidup, kemurahan hati, dan persepsi korupsi (Helliwell et al. 2023). Peubah yang digunakan pada analisis ini berjumlah 6 yang terdiri dari satu peubah respon dan sebelas peubah penjelas yang disajikan pada tabel berikut.
+
+$$
+Y = Skor \ Kebahagiaan\\X1 = PDB \ per \ kapita\\X2 = Harapan \ hidup \ sehat\\X3 = Dukungan \ Sosial\\X4 = Kekebasan \ dalam \ menentukan \ pilihan \ hidup\\X5 = Kemurahan \ hati\\X6 = Persepsi \ korupsi
+$$
+
+## Data Cleaning 
+
+```{r}
+# Menghapus baris dengan nilai NA
+sum(is.na(datapsdind))
+```
+Karena terdapat 2 data yang 'NULL' maka dilakukan interpolasi
+
+```{r}
+datapsdindnew <- na_interpolation(datapsdind, option="spline")
+head(datapsdindnew)
+```
+
+```{r}
+# Mengecek kembali nilai NA
+sum(is.na(datapsdindnew))
+```
+Setelah dilakukan interpolasi, tidak ada lagi nilai NA
+
+```{r}
+y <- datapsdindnew$Y
+x <- data.matrix(datapsdindnew[, c('X1', 'X2', 'X3', 'X4', 'X5', 'X6')])
+```
+
+## Eksplorasi Data
+
+```{r}
+# Sebaran peubah Y (Skor Kebahagiaan)
+hist(datapsdindnew$Y, col = "skyblue")
+```
+
+```{r}
+df_numeric <- datapsdindnew[sapply(datapsdindnew, is.numeric)]
+cor_matrix <- cor(df_numeric, use = "complete.obs")
+corrplot(cor_matrix, method = "number")
+```
+
+
+## Model Regresi Klasik
+
+### Model Regresi
+
+```{r}
+model_datapsdind <- lm(Y ~ X1 + X2 + X3 + X4 + X5 + X6, data = datapsdindnew)
+summary(model_datapsdind)
+```
+
+Model regresi yang terbentuk
+
+$$
+\hat{Y_t}=-1.73785+0.23455X_1+0.02042X_2+3.47071X_3+1.97481X_4+0.15356X_5-0.78788X_6
+$$
+
+## Multikolinearitas
+
+```{r}
+car::vif(model_datapsdind)
+```
+Tidak terdapat peubah penjelas dengan nilai $VIF > 10$. Hal ini membuktikan bahwa tidak terdapat permasalahan multikolinearitas antar peubah
+
+## Pengujian Asumsi
+
+### Uji Asumsi Normalitas
+```{r}
+##Kolmogorov-Smirnov Test
+ks.test(model_datapsdind$residuals, "pnorm", mean=mean(model_datapsdind$residuals), sd=sd(model_datapsdind$residuals))
+```
+Hasil uji Kolmogorov-smirnov menunjukkan bahwa data sisaan pada model regresi menyebar normal dengan $p-value > 0.05$ pada tingkat kepercayaan 95%.
+
+### Uji Asumsi Homoskedastisitas (Gauss Markov)
+```{r}
+lmtest::bptest(model_datapsdind)
+```
+Diketahui $p-value > 0.05$ sehingga ada bukti untuk menyatakan bahwa sisaan pada model tidak terjadi gejala heteroskedastisitas pada tingkat kepercayaan 95%.
+
+### Uji Kebebasan Sisaan (Gauss Markov)
+```{r}
+runs.test(model_datapsdind$residuals)
+```
+Diketahui $p-value > 0.05$ sehingga ada bukti untuk menyatakan bahwa sisaan pada model saling bebas (tidak ada autokorelasi) pada tingkat kepercayaan 95%
+
+### Uji Nilai Harapan Sisaan
+```{r}
+t.test(model_datapsdind$residuals,
+       mu = 0,
+       conf.level = 0.95)
+```
+Diketahui $p-value > 0.05$ sehingga ada bukti untuk menyatakan bahwa nilai harapan sisaan adalah nol pada tingkat kepercayaan 95%.
+
+### AIC
+
+```{r}
+AICklasik <- AIC(model_datapsdind)
+AICklasik
+```
+
+## Pemilihan Peubah Penjelas/ Variable Selection
+
+### BEST SUBSET
+
+```{r}
+library(leaps)
+regfit.full=regsubsets(Y ~ X1 + X2 + X3 + X4 + X5 + X6, data = datapsdindnew, nvmax=64)
+reg.summary=summary(regfit.full)
+reg.summary
+reg.summary$adjr2
+which.max(reg.summary$adjr2)
+coef(regfit.full,6)
+
+olsrr::ols_step_best_subset(model_datapsdind)
+```
+
+Pada pemilihan peubah dengan teknik best subset terlihat nilai AIC paling rendah serta Adj. R-Squared paling tinggi dimiliki oleh model ke-5. Pada model ini, peubah X5(Kemurahan hati) tidak dimasukkan ke dalam model. Nilai Adj. R-Square didapatkan sebesar 0.7983 yang artinya dapat dikatakan baik untuk menggambarkan keragaman skor kebahagiaan oleh kelima peubah yang terpilih. 
+
+### Metode Forward
+
+```{r}
+fmodelselect <- step(lm(y ~ 1, datapsdindnew), direction="forward", scope=formula(model_datapsdind), trace=1)
+summary(fmodelselect)
+```
+
+```{r}
+olsrr::ols_step_forward_p(model_datapsdind)
+```
+
+Hasil metode Stepwise Forward juga menunjukkan hal yang sama. Langkah paling optimal berada pada langkah ke-5, yang mana belum memasukkan peubah X5(Kemurahan hati) ke dalam model. Langkah ke-5 ini dipilih dikarenakan memiliki nilai AIC terkecil yaitu 181.1803 dengan Adj. R-Square sebesar 0.7983.
+
+### Metode Backward
+
+```{r}
+bmodelselect <- step(model_datapsdind, direction="backward", scope=formula(lm(Y ~ X1 + X2 + X3 + X4 + X5 + X6, data = datapsdindnew)), trace=1)
+summary(bmodelselect)
+```
+
+```{r}
+olsrr::ols_step_backward_p(model_datapsdind)
+```
+
+Pada metode Stepwise Backward, peubah X5(Kemurahan hati) dikeluarkan dari model. Menunjukkan bahwa metode Best Subset, Stepwise Forward, dan Stepwise Backward menghasilkan kesimpulan yang sama yaitu: Model terbaik diperoleh dengan tidak memasukkan peubah X5(Kemurahan hati).
+
+### Metode Stepwise
+
+```{r}
+smodelselect <- step(lm(y ~ 1, datapsdindnew), direction="both", scope=formula(model_datapsdind), trace=1)
+summary(smodelselect)
+```
+
+```{r}
+olsrr::ols_step_both_p(model_datapsdind)
 ```
 
 ## Ridge Regression
 
-### Data Peubah
-
 ```{r}
-y <- datapsdind$Y
-x <- data.matrix(datapsdind[, c('X1', 'X2', 'X3', 'X4', 'X5', 'X6')])
+y <- datapsdindnew$Y
+x <- data.matrix(datapsdindnew[, c('X1', 'X2', 'X3', 'X4', 'X5', 'X6')])
 ```
 
-### CV
+#### Fungsi `glmnet`
 
 ```{r}
-cv.r<-cv.glmnet(x,y,alpha=0)
+cv.r <- cv.glmnet(x,y,alpha=0)
 plot(cv.r)
 ```
 
-### Best Model
+#### Hasil Regresi Ridge
 
 ```{r}
-best.lr<-cv.r$lambda.min
-bestridge<-glmnet(x,y,alpha=0,lambda=best.lr)
-coef(bestridge)
+library(lmridge)
+model.ridge<-lmridge(Y~., data=datapsdindnew)
+summary(model.ridge)
 ```
 
-### Fungsi R-Square
+#### Koefisien Ridge
 
 ```{r}
-rsq<-function(bestmodel,bestlambda,x,y){
- #y duga
- y.duga <- predict(bestmodel, s = bestlambda, newx = x)
-
- #JKG dan JKT
- jkt <- sum((y - mean(y))^2)
- jkg <- sum((y.duga- y)^2)
-
-#find R-Squared
-rsq <- 1 - jkg/jkt
-return(rsq) 
-}
+best_lambda <- cv.r$lambda.min
+best_ridge <- glmnet(x, y, alpha = 0, lambda = best_lambda)
+coef(best_ridge)
 ```
 
-### R-Square Ridge
+## Lasso Regression
 
 ```{r}
-rsq(bestridge,best.lr,x,y)
+y <- matrix(datapsdindnew$Y)
+x <- data.matrix(datapsdindnew[, c('X1', 'X2', 'X3', 'X4', 'X5', 'X6')])
 ```
 
-## LASSO Regression
-
-### Data Peubah
+### Fungsi `glmnet`
 
 ```{r}
-y <- datapsdind$Y
-x <- data.matrix(datapsdind[, c('X1', 'X2', 'X3', 'X4', 'X5', 'X6')])
+cv.l<-cv.glmnet(x,y,alpha=1)
+plot(cv.l)
 ```
 
-### CV
+### Hasil Regresi Lasso
 
 ```{r}
-cv.r<-cv.glmnet(x,y,alpha=1)
-plot(cv.r)
+model.lasso<-lasso_vars(datapsdindnew,Y) 
+model.lasso
 ```
 
-### Best Model
+### Koefisien Lasso
 
 ```{r}
-best.lr<-cv.r$lambda.min
-bestridge<-glmnet(x,y,alpha=1,lambda=best.lr)
-coef(bestridge)
+best.ll<-cv.l$lambda.min
+bestlasso<-glmnet(x,y,alpha=1,lambda=best.ll)
+coef(bestlasso)
 ```
 
-### Fungsi R-Square
+### Adj. R-Square Lasso
 
 ```{r}
-rsq<-function(bestmodel,bestlambda,x,y){
- #y duga
- y.duga <- predict(bestmodel, s = bestlambda, newx = x)
+n <- length(datapsdindnew$Y)
+p <- ncol(datapsdindnew)
+r_squared_lasso <- 0.8058
 
- #JKG dan JKT
- jkt <- sum((y - mean(y))^2)
- jkg <- sum((y.duga- y)^2)
-
-#find R-Squared
-rsq <- 1 - jkg/jkt
-return(rsq) 
-}
+adjusted_r_squared <- 1 - ((1 - r_squared_lasso) * (n - 1) / (n - p - 1))
+adjusted_r_squared
 ```
 
-### R-Square Ridge
+## Perbandingan Model Klasik, Ridge Regression, dan Lasso Regression
+```{r}
+comparison_table <- data.frame(
+  Method = c("Klasik", "Best Subset", "Ridge", "Lasso"),
+  AIC = c(AICklasik, 181.1803, -198.51767, 183.2031),
+  Adj.R2 = c(0.7971, 0.7983, 0.7987, 0.7940),
+  R2 = c(0.8063, 0.8063, 0.8063, 0.8058)
+) %>%
+  arrange(desc(R2))
+
+print(comparison_table)
+```
+
+Jika dilihat dari nilai R-Square, model regresi hasil Klasik, Best Subset, dan Ridge adalah yang terbaik karena menghasilkan nilai terbaik yang sama. Namun, jika dilihat dari nilai AIC maka model Ridge adalah yang terbaik. Selisih nilai AIC model Ridge dengan ketiga model lainnya sangat besar, sedangkan perbedaan nilai R-square diantara keempat model tidak jauh berbeda. Oleh karena itu, model Ridge dipilih sebagai model yang paling baik untuk data yang digunakan.
+
+## Peubah Yang Berpengaruh
+
+Pada model Klasik, Best Subset, Ridge, maupun Lasso memiliki hasil yang sama. Peubah penjelas yang berpengaruh signifikan terhadap peubah respon adalah X1, X2, X3, X4, dan X6, namun 1 diantaranya (X5 = Kemurahan Hati) tidak berpengaruh signifikan terhadap peubah respon. Peubah X5 tidak dipertahankan pada model Ridge, sedangkan pada model Lasso dipertahankan. Model ini memiliki R2 sebesar 0.806. Artinya, model ini sudah menjelaskan 80.6% keberagaman dari data. Berikut adalah model yang dibentuk.
+
+## Interpretasi Model Terbaik
 
 ```{r}
-rsq(bestridge,best.lr,x,y)
+coef(best_ridge)
 ```
+
+$$
+\hat{Y_t}=-1.6865257+0.2155973X_1+0.0293849X_2+2.8998954X_3+1.9223654X_4+0.1716632X_5-0.7237225X_6
+$$
+
+Koefisien X1 (PDB per kapita) adalah 0.2155973, yang berarti bahwa ketika variabel X1 (PDB per kapita) naik satu satuan, maka perkiraan nilai variabel dependen Y (Skor Kebahagiaan) akan meningkat sebesar 0.2155973, dengan asumsi variabel lainnya tetap konstan.
+
+Koefisien X2 (Harapan hidup sehat) adalah 0.0293849, yang berarti bahwa ketika variabel X2 (Harapan hidup sehat) naik satu satuan, maka perkiraan nilai variabel dependen Y (Skor Kebahagiaan) akan meningkat sebesar 0.0293849, dengan asumsi variabel lainnya tetap konstan.
+
+Koefisien X3 (Dukungan Sosial) adalah 2.8998954, yang berarti bahwa ketika variabel X3 (Dukungan Sosial) naik satu satuan, maka perkiraan nilai variabel dependen Y (Skor Kebahagiaan) akan meningkat sebesar 2.8998954, dengan asumsi variabel lainnya tetap konstan.
+
+Koefisien X4 (Kekebasan dalam menentukan pilihan hidup) adalah 1.9223654, yang berarti bahwa ketika variabel X4 (Kekebasan dalam menentukan pilihan hidup) naik satu satuan, maka perkiraan nilai variabel dependen Y (Skor Kebahagiaan) akan meningkat sebesar 1.9223654, dengan asumsi variabel lainnya tetap konstan.
+
+Koefisien X5 (Kemurahan hati) adalah 0.1716632, yang berarti bahwa ketika variabel X5 (Kemurahan hati) naik satu satuan, maka perkiraan nilai variabel dependen Y (Skor Kebahagiaan) akan meningkat sebesar 0.1716632, dengan asumsi variabel lainnya tetap konstan.
+
+Koefisien X6 (Persepsi korupsi) adalah -0.7237225, yang berarti bahwa ketika variabel X6 (Persepsi korupsi) naik satu satuan, maka perkiraan nilai variabel dependen Y (Skor Kebahagiaan) akan menurun sebesar -0.7237225, dengan asumsi variabel lainnya tetap konstan.
