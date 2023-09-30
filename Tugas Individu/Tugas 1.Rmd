@@ -283,17 +283,20 @@ coef(best_ridge)
 ```
 
 $$
-\hat{Y_t}=-1.6865257+0.2155973X_1+0.0293849X_2+2.8998954X_3+1.9223654X_4+0.1716632X_5-0.7237225X_6
+\hat{Y_t}=-1.71767815+0.21793065X_1+0.02857663X_2+2.96995280X_3+1.93516469X_4+0.17185865X_5-0.73069075X_6
 $$
 
-Koefisien X1 (PDB per kapita) adalah 0.2155973, yang berarti bahwa ketika variabel X1 (PDB per kapita) naik satu satuan, maka perkiraan nilai variabel dependen Y (Skor Kebahagiaan) akan meningkat sebesar 0.2155973, dengan asumsi variabel lainnya tetap konstan.
+Peubah penjelas yang signifikan terhadap peubah respon:
+- Peubah X1 (PDB per kapita) adalah 0.21793065, yang berarti semakin besar PDB per kapita di suatu negara, maka perkiraan nilai Skor Kebahagiaan relatif akan semkain meningkat.
 
-Koefisien X2 (Harapan hidup sehat) adalah 0.0293849, yang berarti bahwa ketika variabel X2 (Harapan hidup sehat) naik satu satuan, maka perkiraan nilai variabel dependen Y (Skor Kebahagiaan) akan meningkat sebesar 0.0293849, dengan asumsi variabel lainnya tetap konstan.
+- Peubah X3 (Dukungan Sosial) adalah 2.96995280, yang berarti semakin besar Dukungan Sosial di lingkungan suatu negara tertentu, maka perkiraan nilai Skor Kebahagiaan akan semakin meningkat.
 
-Koefisien X3 (Dukungan Sosial) adalah 2.8998954, yang berarti bahwa ketika variabel X3 (Dukungan Sosial) naik satu satuan, maka perkiraan nilai variabel dependen Y (Skor Kebahagiaan) akan meningkat sebesar 2.8998954, dengan asumsi variabel lainnya tetap konstan.
+- Peubah X4 (Kekebasan dalam menentukan pilihan hidup) adalah 1.93516469, yang berarti semakin besar dukungan Kekebasan dalam menentukan pilihan hidup di lingkungan suatu negara tertentu, maka perkiraan nilai Skor Kebahagiaan relatif akan semakin meningkat.
 
-Koefisien X4 (Kekebasan dalam menentukan pilihan hidup) adalah 1.9223654, yang berarti bahwa ketika variabel X4 (Kekebasan dalam menentukan pilihan hidup) naik satu satuan, maka perkiraan nilai variabel dependen Y (Skor Kebahagiaan) akan meningkat sebesar 1.9223654, dengan asumsi variabel lainnya tetap konstan.
+- Peubah X6 (Persepsi korupsi) adalah -0.73069075, yang berarti bahwa semakin meningkat Persepsi korupsi di suatu negara, maka perkiraan nilai Skor Kebahagiaan akan semakin menurun.
 
-Koefisien X5 (Kemurahan hati) adalah 0.1716632, yang berarti bahwa ketika variabel X5 (Kemurahan hati) naik satu satuan, maka perkiraan nilai variabel dependen Y (Skor Kebahagiaan) akan meningkat sebesar 0.1716632, dengan asumsi variabel lainnya tetap konstan.
 
-Koefisien X6 (Persepsi korupsi) adalah -0.7237225, yang berarti bahwa ketika variabel X6 (Persepsi korupsi) naik satu satuan, maka perkiraan nilai variabel dependen Y (Skor Kebahagiaan) akan menurun sebesar -0.7237225, dengan asumsi variabel lainnya tetap konstan.
+Peubah penjelas yang tidak signifikan terhadap peubah respon:
+- Peubah X2 (Harapan hidup sehat) adalah 0.02857663, yang berarti bahwa semakin besar nilai Harapan hidup sehat seseorang di suatu negara, maka perkiraan nilai Skor Kebahagiaan akan semakin meningkat.
+
+- Peubah X5 (Kemurahan hati) adalah 0.17185865, yang berarti semakin besar rasa Kemurahan hati seseorang di lingkungan suatu negara, maka perkiraan nilai Skor Kebahagiaan akan semakin meningkat.
