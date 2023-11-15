@@ -1,1 +1,118 @@
-p
+---
+title: "Tugas Visualisasi PSD"
+author: "Arfiah Kania Sektiaruni"
+date: "2023-11-15"
+output: html_document
+---
+
+# Packages
+
+```{r}
+library("factoextra")
+```
+
+# Menyiapkan Data
+
+```{r}
+data_pend <- rio::import("https://raw.githubusercontent.com/afhkaniase/praktikum-psd/main/Data/Global_Education.csv")
+head(data_pend)
+```
+
+### _Pre-processing_ Data
+
+Peubah yang digunakan untuk menerapkan K-Means adalah peubah `X1`,`X2`,`X3`,`X4`,`X5`,`X6`,`X7`,`X8` dan `X9` (numerik). Oleh karena itu peubah yang tidak kita gunakan akan kita hilangkan tersebih dahulu.
+
+```{r}
+data_pend <- data_pend[,c("X1","X2","X3","X4","X5","X6","X7","X8","X9")]
+head(data_pend)
+```
+
+### Standardisasi Peubah
+
+Standardisasi peubah merupakan proses transformasi peubah menjadi peubah yang memiliki rata-rata = 0 dan simpangan baku = 1. Standardisasi dilakukan karena metode K-Means menggunakan konsep jarak antara objek/amatan, yang mana sensitif terhadap satuan pengukuran. Formula untuk standardisasi data adalah sebagai berikut:
+
+$y' = \frac{y-\bar{y}}{\sigma_y}$
+
+Di mana:
+
+- $\bar{y}$ : rataan $y$
+- $\sigma_y$ : simpangan baku $y$
+
+Dengan R, standardisasi dilakukan dengan fungsi `scale()`.
+
+```{r}
+data_pend_standardize <- scale(data_pend) 
+```
+
+Jika kita perhatikan rata-rata peubah setelah distandardisasi mendekati nol.
+```{r}
+apply(data_pend_standardize, 2, mean)
+```
+
+Dan simpangan baku dari peubah setelah distandardisasi mendekati satu.
+```{r}
+apply(data_pend_standardize, 2, sd)
+```
+
+### Memilih Banyaknya Gerombol
+
+Umumnya, banyaknya gerombol dapat ditentukan dengan menggunakan beberapa kriteria statistik, seperti koefisien **_silhouette_** dan **WSS** atau (_Within Sum of Square_).
+
+- Kriteria koefisien _silhouette_ dihitung berdasarkan jarak antar amatan. Koefisien ini mengukur seberapa dekat suatu amatan dengan amatan lain yang berada di gerombol yang sama (dikenal sebagai ukuran _cohesion_) dibandingkan dengan jarak terhadap amatan lain yang berada di gerombol berbeda (dikenal sebagai ukuran _separation_). Koefisien yang nilainya semakin besar menunjukkan bahwa gerombol yang terbentuk sudah sesuai.
+
+- Kriteria WSS merupakan kriteria yang menghitung keragamaan dalam gerombol yang terbentuk. Semakin kecil keragaman dalam gerombol yang terbentuk menunjukkan bahwa gerombol yang terbentuk sudah sesuai.
+
+Dengan menggunakan kriteria tersebut, kita bisa membandingkan banyaknya gerombol yang paling sesuai pada data yang kita sedang analisis. Dalam R, fungsi `fviz_nbclust()` dari _package_ factoextra1 dapat digunakan untuk memilih banyaknya gerombol.
+
+```{r}
+fviz_nbclust(data_pend_standardize, FUNcluster = kmeans, method = "silhouette")
+fviz_nbclust(data_pend_standardize, FUNcluster = kmeans, k.max = 20, method = "wss")
+```
+
+
+
+Untuk kriteria koefisien _silhouette_, banyaknya gerombol dengan **nilai koefisien tertinggi** yang kita pilih. Sedangkan pada WSS, banyaknya gerombol yang kita pilih didasarkan pada banyaknya gerombol yang mana garisnya **berbentuk seperti siku (_elbow_)**. Pada gambar diatas garis membentuk siku saat berada di gerombol kesembilan **Karena penentuan ini berdasarkan visual, jadi setiap orang mungkin berbeda melihat pola sikunya.**
+
+Berdasarkan kedua kriteria tersebut, banyaknya gerombol terbaik yang dipilih berbeda. Jika demikian, banyaknya gerombol bisa ditentukan berdasarkan kemudahan interpretasi gerombol yang terbentuk. Pada tulisan ini kita akan menggunakan 2 gerombol saja.
+
+### Menerapkan K-Means
+
+Setelah kita mendapatkan banyaknya gerombol terbaik, maka selajutnya kita akan menerapkan metode K-Means untuk mendapatkan label gerombol pada setiap amatan. Fungsi eclust dari _package_ `factoextra` digunakan untuk menerpkan metode K-Means. Pada fungsi `eclust()`, kita cukup memasukan data yang sebelum distandardisasi, karena dalam fungsi tersebut terdapat argumen `stand`, yang jika diatur `stand = TRUE` secara otomatis data yang kita gunakan akan distandardisasi.
+
+```{r}
+kmeans_pend <- eclust(data_pend, stand = TRUE, FUNcluster = "kmeans", k=2, graph = F) 
+```
+
+Memanggil label gerombol untuk setiap amatan dilakukan dengan:
+```{r}
+kmeans_pend$cluster
+```
+
+Kemu- dian,interpretasi setiap gerombol yang terbentuk dapat dilakukan dengan menggunakan bantuan nilai rata-rata dari masing-masing peubah dihitung berdasarkan gerombol. Informasi ini bisa diperoleh dengan menggunakan `$centers`. Karena kita melakukan standardisasi peubah, maka nilai rata-rata yang diperoleh juga dalam skala standardisasi.
+```{r}
+kmeans_pend$centers
+```
+
+### Interpretasi Gerombol yang terbentuk
+
+Berdasarkan nilai rata-rata dari `$centers`, berikut adalah interpretasinya:
+
+- Gerombol 1 : gerombol ini merupakan customer-customer yang cukup muda (peubah **Age** bernilai kecil) dan berpenghasilan besar (peubah **Income** bernilai besar) namun sedikit sekali menghabiskan uangnya untuk berbelanja (peubah **Spending Score** bernilai kecil bahkan negatif).
+- Gerombol 2 : gerombol ini merupakan customer-customer yang sudah tua (peubah **Age** bernilai besar) dan berpenghasilan kecil (peubah **Income** bernilai kecil) dan sedikit sekali menghabiskan uangnya untuk berbelanja (peubah **Spending Score** bernilai kecil). Gerombol ini mungkin murupakan customer yang sudah pensiun dan hanya memiliki pemasukan dari tunjangan pensiun.
+- Gerombol 3 : gerombol ini merupakan customer-customer yang masih sangat muda (peubah **Age** bernilai kecil) dan berpenghasilan kecil (peubah **Income** bernilai kecil) namun menghabiskan uangnya untuk berbelanja cukup besar (peubah **Spending Score** bernilai besar). Gerombol ini mungkin murupakan customer yang aneh, karena memiliki penghasilan yang kecil namun belanjanya banyak.
+- Gerombol 4 : gerombol ini merupakan customer-customer yang masih cukup muda (peubah **Age** bernilai kecil) dan berpenghasilan besar (peubah **Income** bernilai besar) namun menghabiskan uangnya untuk berbelanja cukup besar (peubah **Spending Score** bernilai besar). Gerombol ini mungkin murupakan customer yang paling menarik untuk menjadi target marketing selanjutnya.
+
+Jika sulit membaca hasil dalam bentuk skala standardisasi maka kita bisa menggunakan fungsi `aggregate()` untuk melihat rata-ratanya dalam skala aslinya. Fungsi ini dapat menghitung rata-rata setiap peubah berdasarkan gerombol yang terbentuk.
+
+```{r}
+aggregate(data_pend, by =list(gerombol = kmeans_pend$cluster), FUN = mean)
+fviz_cluster(kmeans_pend)
+```
+
+Cara lain untuk menginterpretasikan hasil gerombol adalah menggunakan scatterplot. Jika peubah untuk membangun cluster lebih dari dua, maka sebelum dibentuk _scatterplot_ peubah tersebut direduksi terlebih dahulu menggunakan analisis komponen utama menjadi dua komponen utama. Namun, untuk interpretasinya setiap gerombolnya kita harus mengetahui interpretasi dari kedua komponen utama dan belum tentu dengan dua komponen utama tersebut sudah mampu menjelaskan keragaman data asal dengan baik.
+
+Interpretasi dua komponen utama bisa dilihat dengan akar cirinya.
+```{r}
+pca_pend <- prcomp(data_pend_standardize) 
+pca_pend$rotation
+```
